@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Image Upload</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 40px;
+    }
+
+    img {
+      border: 1px solid #ccc;
+      margin-top: 10px;
+      display: block;
+      max-width: 300px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Upload Image</h1>
+  
+  <!-- File input for selecting an image -->
+  <input type="file" id="imageInput" accept="image/*" />
+  
+  <!-- Button to trigger the upload process -->
+  <button onclick="uploadImage()">Upload</button>
+
+  <!-- Area to show results after upload -->
+  <div id="results" style="display: none;">
+    <h2>Original Image:</h2>
+    <img id="originalImage" alt="Original Image" />
+
+    <h2>Cropped Image:</h2>
+    <img id="croppedImage" alt="Cropped Image" />
+  </div>
+
+  <script>
+    async function uploadImage() {
+      // Get the selected file from the input
+      const file = document.getElementById("imageInput").files[0];
+      if (!file) {
+        alert("Please select an image file before uploading.");
+        return;
+      }
+
+      const img = new Image();
+      const reader = new FileReader();
+
+      // When the file reading is complete
+      reader.onloadend = function () {
+        img.onload = async function () {
+          // Create canvas to convert the image to JPEG format
+          const canvas = document.createElement("canvas");
+          canvas.width = img.width;
+          canvas.height = img.height;
+          const ctx = canvas.getContext("2d");
+          ctx.drawImage(img, 0, 0);
+
+          // Convert the image to a Base64-encoded JPEG string
+          const jpegDataUrl = canvas.toDataURL("image/jpeg", 0.9);
+          const base64data = jpegDataUrl.split(",")[1];
+
+          try {
+            // Send the image data to the backend
+            const response = await fetch("https://yb60mtrieg.execute-api.us-east-1.amazonaws.com/dev/upload", {
+              method: "POST",
+              headers: {
+                "Content-Type": "text/plain",
+              },
+              body: base64data
+            });
+
+            // Check for server errors
+            if (!response.ok) {
+              const text = await response.text();
+              console.error("Server error:", text);
+              alert("Upload failed: " + response.status);
+              return;
+            }
+
+            // Parse the response and display images
+            const data = await response.json();
+            console.log("Server response:", data);
+
+            document.getElementById("originalImage").src = data.originalImageUrl;
+            document.getElementById("croppedImage").src = data.croppedImageUrl;
+            document.getElementById("results").style.display = "block";
+
+          } catch (err) {
+            // Catch and report any unexpected errors
+            console.error("Unexpected error:", err);
+            alert("An error occurred during the upload.");
+          }
+        };
+
+        // Set the image source to trigger loading
+        img.src = reader.result;
+      };
+
+      // Start reading the image file as a data URL
+      reader.readAsDataURL(file);
+    }
+  </script>
+</body>
+</html>
